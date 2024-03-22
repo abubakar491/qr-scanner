@@ -16,106 +16,87 @@ import {
   LensFacing,
   StartScanOptions,
 } from '@capacitor-mlkit/barcode-scanning';
-import { InputCustomEvent } from '@ionic/angular';
+import { InputCustomEvent, ToastController } from '@ionic/angular';
+
+interface OrderList {
+  [key: string]: {
+    expectedQuantity: number;
+    scannedQuantity: number;
+  };
+}
 
 @Component({
   selector: 'app-barcode-scanning',
-  template: `
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>Scanning</ion-title>
-        <ion-buttons slot="end">
-          <ion-button (click)="closeModal()">
-            <ion-icon name="close"></ion-icon>
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
-
-    <ion-content>
-      <div #square class="square"></div>
-      <div class="zoom-ratio-wrapper">
-        <ion-range
-          [min]="minZoomRatio"
-          [max]="maxZoomRatio"
-          [disabled]="minZoomRatio === undefined || maxZoomRatio === undefined"
-          (ionChange)="setZoomRatio($any($event))"
-        ></ion-range>
-      </div>
-      @if (isTorchAvailable) {
-        <ion-fab slot="fixed" horizontal="end" vertical="bottom">
-          <ion-fab-button (click)="toggleTorch()">
-            <ion-icon name="flashlight"></ion-icon>
-          </ion-fab-button>
-        </ion-fab>
-      }
-    </ion-content>
-  `,
-  styles: [
-    `
-      ion-content {
-        --background: transparent;
-      }
-
-      .square {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        border-radius: 16px;
-        width: 200px;
-        height: 200px;
-        border: 6px solid white;
-        box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.3);
-      }
-
-      .zoom-ratio-wrapper {
-        position: absolute;
-        left: 50%;
-        bottom: 16px;
-        transform: translateX(-50%);
-        width: 50%;
-      }
-    `,
-  ],
+  templateUrl: `./barcode-scanning-modal.component.html`,
+  styleUrls: ['./barcode-scanning-modal.component.scss'],
 })
-export class BarcodeScanningModalComponent
-  implements OnInit, AfterViewInit, OnDestroy
-{
-  @Input()
-  public formats: BarcodeFormat[] = [];
-  @Input()
-  public lensFacing: LensFacing = LensFacing.Back;
-
-  @ViewChild('square')
-  public squareElement: ElementRef<HTMLDivElement> | undefined;
+export class BarcodeScanningModalComponent implements OnInit, AfterViewInit, OnDestroy {
+  @Input() formats: BarcodeFormat[] = [];
+  @Input() lensFacing: LensFacing = LensFacing.Back;
+  @ViewChild('square') squareElement!: ElementRef<HTMLDivElement>;
 
   public isTorchAvailable = false;
   public minZoomRatio: number | undefined;
   public maxZoomRatio: number | undefined;
+  private scannerListener: any;
+  public barcodeArr: any[] = [];
+  showNotification = false;
+  notificationMessage = '';
+
+  private currentOrderList: OrderList = {
+    'item1': { expectedQuantity: 5, scannedQuantity: 0 },
+    'item2': { expectedQuantity: 5, scannedQuantity: 0 },
+    'item3': { expectedQuantity: 5, scannedQuantity: 0 },
+    // 'item4': { expectedQuantity: 5, scannedQuantity: 0 },
+    // 'item5': { expectedQuantity: 5, scannedQuantity: 0 },
+    // 'item6': { expectedQuantity: 5, scannedQuantity: 0 },
+    // 'item7': { expectedQuantity: 5, scannedQuantity: 0 },
+    // 'item8': { expectedQuantity: 5, scannedQuantity: 0 },
+    // 'item9': { expectedQuantity: 5, scannedQuantity: 0 },
+    // 'item10': { expectedQuantity: 5, scannedQuantity: 0 },
+    // 'item11': { expectedQuantity: 5, scannedQuantity: 0 },
+    // 'item12': { expectedQuantity: 5, scannedQuantity: 0 },
+    // 'item13': { expectedQuantity: 5, scannedQuantity: 0 },
+    // 'item14': { expectedQuantity: 5, scannedQuantity: 0 },
+    // 'item15': { expectedQuantity: 5, scannedQuantity: 0 }
+  };
 
   constructor(
     private readonly dialogService: DialogService,
     private readonly ngZone: NgZone,
-  ) {}
+    private toastController: ToastController
+  ) { }
 
-  public ngOnInit(): void {
+  ngOnInit(): void {
     BarcodeScanner.isTorchAvailable().then((result) => {
       this.isTorchAvailable = result.available;
     });
   }
 
-  public ngAfterViewInit(): void {
+  ngAfterViewInit(): void {
     setTimeout(() => {
       this.startScan();
     }, 500);
   }
 
-  public ngOnDestroy(): void {
+  ngOnDestroy(): void {
     this.stopScan();
+    if (this.scannerListener) {
+      this.scannerListener.remove();
+    }
   }
 
-  public setZoomRatio(event: InputCustomEvent): void {
+  private updateDisplayList(): void {
+    this.barcodeArr = Object.keys(this.currentOrderList).map(key => {
+      return {
+        name: key,
+        ...this.currentOrderList[key],
+        isComplete: this.currentOrderList[key].scannedQuantity >= this.currentOrderList[key].expectedQuantity
+      };
+    });
+  }
+
+  setZoomRatio(event: InputCustomEvent): void {
     if (!event.detail.value) {
       return;
     }
@@ -124,89 +105,131 @@ export class BarcodeScanningModalComponent
     });
   }
 
-  public async closeModal(barcode?: Barcode): Promise<void> {
+  closeModal(barcode?: Barcode): void {
     this.dialogService.dismissModal({
       barcode: barcode,
     });
   }
 
-  public async toggleTorch(): Promise<void> {
-    await BarcodeScanner.toggleTorch();
+  toggleTorch(): void {
+    BarcodeScanner.toggleTorch();
   }
 
-  private async startScan(): Promise<void> {
-    // Hide everything behind the modal (see `src/theme/variables.scss`)
+  private startScan(): void {
     document.querySelector('body')?.classList.add('barcode-scanning-active');
+    BarcodeScanner.startScan();
+    this.scannerListener = this.addScannerListener();
+  }
 
-    const options: StartScanOptions = {
-      formats: this.formats,
-      lensFacing: this.lensFacing,
-    };
-
-    const squareElementBoundingClientRect =
-      this.squareElement?.nativeElement.getBoundingClientRect();
-    const scaledRect = squareElementBoundingClientRect
-      ? {
-          left: squareElementBoundingClientRect.left * window.devicePixelRatio,
-          right:
-            squareElementBoundingClientRect.right * window.devicePixelRatio,
-          top: squareElementBoundingClientRect.top * window.devicePixelRatio,
-          bottom:
-            squareElementBoundingClientRect.bottom * window.devicePixelRatio,
-          width:
-            squareElementBoundingClientRect.width * window.devicePixelRatio,
-          height:
-            squareElementBoundingClientRect.height * window.devicePixelRatio,
+  private addScannerListener(): void {
+    let lastInvocationTime = 0;
+    const throttleDelay = 1000; // 1 second delay
+  
+    BarcodeScanner.addListener('barcodeScanned', (event) => {
+      if (!this.isBarcodeWithinRectangle(event.barcode)) {
+        console.log('Barcode not within the rectangle');
+        return;
+      }
+      this.ngZone.run(() => {
+        const currentTime = Date.now();
+  
+        // Check if the required delay has passed since the last invocation
+        if (currentTime - lastInvocationTime > throttleDelay) {
+          lastInvocationTime = currentTime;
+          const barcodeValue = event.barcode.displayValue;
+          
+          // Process the scanned barcode
+          this.handleBarcodeScanned(barcodeValue);
+        } else {
+          console.log('Scan ignored due to throttling');
         }
-      : undefined;
+      });
+    });
+  }
+  
+
+  handleBarcodeScanned(barcodeValue: string) {
+    const item = this.currentOrderList[barcodeValue];
+
+    if (!item) {
+      this.showCustomNotification(`SKU not found in order: ${barcodeValue}`);
+      return;
+    }
+
+    if (item.scannedQuantity < item.expectedQuantity) {
+      item.scannedQuantity++;
+      const notificationMessage = item.scannedQuantity === item.expectedQuantity
+        ? `${barcodeValue} fully scanned`
+        : `Scanned ${barcodeValue}: ${item.scannedQuantity}/${item.expectedQuantity}`;
+      this.showCustomNotification(notificationMessage);
+    } else {
+      this.showCustomNotification(`${barcodeValue} already fully scanned`);
+    }
+
+    // Update the display list after processing the scan
+    this.updateDisplayList();
+    console.log('Updated barcodeArr:', this.barcodeArr);
+  }
+
+
+  showCustomNotification(message: string) {
+    this.notificationMessage = message;
+    this.showNotification = true;
+    setTimeout(() => {
+      this.showNotification = false;
+    }, 2000);
+  }
+
+  completeOrder() {
+    console.log('Order completed', this.barcodeArr);
+  }
+  private isBarcodeWithinRectangle(barcode: Barcode): boolean {
+    const scaledRect = this.getScaledRectangle();
     const detectionCornerPoints = scaledRect
       ? [
-          [scaledRect.left, scaledRect.top],
-          [scaledRect.left + scaledRect.width, scaledRect.top],
-          [
-            scaledRect.left + scaledRect.width,
-            scaledRect.top + scaledRect.height,
-          ],
-          [scaledRect.left, scaledRect.top + scaledRect.height],
-        ]
+        [scaledRect.left, scaledRect.top],
+        [scaledRect.left + scaledRect.width, scaledRect.top],
+        [scaledRect.left + scaledRect.width, scaledRect.top + scaledRect.height],
+        [scaledRect.left, scaledRect.top + scaledRect.height],
+      ]
       : undefined;
-    const listener = await BarcodeScanner.addListener(
-      'barcodeScanned',
-      async (event) => {
-        this.ngZone.run(() => {
-          const cornerPoints = event.barcode.cornerPoints;
-          if (detectionCornerPoints && cornerPoints) {
-            if (
-              detectionCornerPoints[0][0] > cornerPoints[0][0] ||
-              detectionCornerPoints[0][1] > cornerPoints[0][1] ||
-              detectionCornerPoints[1][0] < cornerPoints[1][0] ||
-              detectionCornerPoints[1][1] > cornerPoints[1][1] ||
-              detectionCornerPoints[2][0] < cornerPoints[2][0] ||
-              detectionCornerPoints[2][1] < cornerPoints[2][1] ||
-              detectionCornerPoints[3][0] > cornerPoints[3][0] ||
-              detectionCornerPoints[3][1] < cornerPoints[3][1]
-            ) {
-              return;
-            }
-          }
-          listener.remove();
-          this.closeModal(event.barcode);
-        });
-      },
-    );
-    await BarcodeScanner.startScan(options);
-    void BarcodeScanner.getMinZoomRatio().then((result) => {
-      this.minZoomRatio = result.zoomRatio;
-    });
-    void BarcodeScanner.getMaxZoomRatio().then((result) => {
-      this.maxZoomRatio = result.zoomRatio;
-    });
+
+    const cornerPoints = barcode.cornerPoints;
+    if (detectionCornerPoints && cornerPoints) {
+      return !(
+        detectionCornerPoints[0][0] > cornerPoints[0][0] ||
+        detectionCornerPoints[0][1] > cornerPoints[0][1] ||
+        detectionCornerPoints[1][0] < cornerPoints[1][0] ||
+        detectionCornerPoints[1][1] > cornerPoints[1][1] ||
+        detectionCornerPoints[2][0] < cornerPoints[2][0] ||
+        detectionCornerPoints[2][1] < cornerPoints[2][1] ||
+        detectionCornerPoints[3][0] > cornerPoints[3][0] ||
+        detectionCornerPoints[3][1] < cornerPoints[3][1]
+      );
+    }
+    return true;
   }
 
-  private async stopScan(): Promise<void> {
-    // Show everything behind the modal again
-    document.querySelector('body')?.classList.remove('barcode-scanning-active');
+  private getScaledRectangle() {
+    const rect = this.squareElement?.nativeElement.getBoundingClientRect();
+  
+    // Calculate the 15% margin for each side
+    const marginWidth = rect.width * 0.15;
+    const marginHeight = rect.height * 0.15;
+  
+    // Adjust the rectangle dimensions to only include the central area
+    return {
+      left: (rect.left + marginWidth) * window.devicePixelRatio,
+      right: (rect.right - marginWidth) * window.devicePixelRatio,
+      top: (rect.top + marginHeight) * window.devicePixelRatio,
+      bottom: (rect.bottom - marginHeight) * window.devicePixelRatio,
+      width: (rect.width - 2 * marginWidth) * window.devicePixelRatio,
+      height: (rect.height - 2 * marginHeight) * window.devicePixelRatio,
+    };
+  }
 
-    await BarcodeScanner.stopScan();
+  private stopScan(): void {
+    document.querySelector('body')?.classList.remove('barcode-scanning-active');
+    BarcodeScanner.stopScan();
   }
 }

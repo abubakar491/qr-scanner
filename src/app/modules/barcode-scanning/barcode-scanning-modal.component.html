@@ -1,0 +1,65 @@
+
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Scanning</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="closeModal()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div #square class="square"></div>
+  <!-- <div class="zoom-ratio-wrapper">
+    <ion-range
+      [min]="minZoomRatio"
+      [max]="maxZoomRatio"
+      [disabled]="minZoomRatio === undefined || maxZoomRatio === undefined"
+      (ionChange)="setZoomRatio($any($event))"
+    ></ion-range>
+  </div>
+  @if (isTorchAvailable) {
+    <ion-fab slot="fixed" horizontal="end" vertical="bottom">
+      <ion-fab-button (click)="toggleTorch()">
+        <ion-icon name="flashlight"></ion-icon>
+      </ion-fab-button>
+    </ion-fab>
+  } -->
+  <div class="below_div">
+    <div *ngIf="barcodeArr.length >= 0">
+      <ng-container *ngFor="let item of barcodeArr">
+        <div class="item-card" [ngClass]="{'green-border': item.isComplete, 'blue-border': !item.isComplete}">
+          <div class="item-name-with-icon">
+            <ion-icon name="checkmark-outline" class="tick-icon" [ngClass]="{'green-tick': item.isComplete, 'blue-tick': !item.isComplete}"></ion-icon>
+            <div class="item-name">{{ item.name }}</div>
+          </div>
+          <div class="quantity-box" [ngClass]="{'green-box': item.isComplete, 'black-box': !item.isComplete}">
+            <span class="scanned-quantity">{{ item.scannedQuantity }}</span> / 
+            <span class="expected-quantity">{{ item.expectedQuantity }}</span>
+          </div>
+        </div>              
+      </ng-container>
+    </div>
+
+    <div *ngIf="showNotification" class="custom-notification">
+      {{ notificationMessage }}
+    </div>
+
+    <div *ngIf="barcodeArr.length === 0" class="scan-prompt">
+      <ion-icon name="qr-code" class="scan-icon"></ion-icon>
+      <p>Start scanning items</p>
+      <p>Barcodes and QR codes are supported</p>
+    </div>
+
+    <div class="button-container">
+      <span *ngIf="barcodeArr.length === 0" (click)="closeModal()" class="close-button">
+        close
+      </span>
+      <span *ngIf="barcodeArr.length > 0" (click)="completeOrder()" class="complete-button">
+        Complete
+      </span>
+    </div>
+  </div>  
+</ion-content>
