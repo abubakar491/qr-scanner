@@ -30,7 +30,9 @@ interface OrderList {
   templateUrl: `./barcode-scanning-modal.component.html`,
   styleUrls: ['./barcode-scanning-modal.component.scss'],
 })
-export class BarcodeScanningModalComponent implements OnInit, AfterViewInit, OnDestroy {
+export class BarcodeScanningModalComponent
+  implements OnInit, AfterViewInit, OnDestroy
+{
   @Input() formats: BarcodeFormat[] = [];
   @Input() lensFacing: LensFacing = LensFacing.Back;
   @ViewChild('square') squareElement!: ElementRef<HTMLDivElement>;
@@ -44,9 +46,9 @@ export class BarcodeScanningModalComponent implements OnInit, AfterViewInit, OnD
   notificationMessage = '';
 
   private currentOrderList: OrderList = {
-    'item1': { expectedQuantity: 5, scannedQuantity: 0 },
-    'item2': { expectedQuantity: 5, scannedQuantity: 0 },
-    'item3': { expectedQuantity: 5, scannedQuantity: 0 },
+    item1: { expectedQuantity: 5, scannedQuantity: 0 },
+    item2: { expectedQuantity: 5, scannedQuantity: 0 },
+    item3: { expectedQuantity: 5, scannedQuantity: 0 },
     // 'item4': { expectedQuantity: 5, scannedQuantity: 0 },
     // 'item5': { expectedQuantity: 5, scannedQuantity: 0 },
     // 'item6': { expectedQuantity: 5, scannedQuantity: 0 },
@@ -64,10 +66,11 @@ export class BarcodeScanningModalComponent implements OnInit, AfterViewInit, OnD
   constructor(
     private readonly dialogService: DialogService,
     private readonly ngZone: NgZone,
-    private toastController: ToastController
-  ) { }
+    private toastController: ToastController,
+  ) {}
 
   ngOnInit(): void {
+    this.barcodeArr = [];
     BarcodeScanner.isTorchAvailable().then((result) => {
       this.isTorchAvailable = result.available;
     });
@@ -87,13 +90,20 @@ export class BarcodeScanningModalComponent implements OnInit, AfterViewInit, OnD
   }
 
   private updateDisplayList(): void {
-    this.barcodeArr = Object.keys(this.currentOrderList).map(key => {
+    console.log('idhr aya 5');
+    this.barcodeArr = Object.keys(this.currentOrderList).map((key) => {
       return {
         name: key,
         ...this.currentOrderList[key],
-        isComplete: this.currentOrderList[key].scannedQuantity >= this.currentOrderList[key].expectedQuantity
+        isComplete:
+          this.currentOrderList[key].scannedQuantity >=
+          this.currentOrderList[key].expectedQuantity,
       };
     });
+  }
+
+  getCompletedItemCount(): number {
+    return this.barcodeArr.filter((item) => item.isComplete).length;
   }
 
   setZoomRatio(event: InputCustomEvent): void {
@@ -123,8 +133,8 @@ export class BarcodeScanningModalComponent implements OnInit, AfterViewInit, OnD
 
   private addScannerListener(): void {
     let lastInvocationTime = 0;
-    const throttleDelay = 1000; // 1 second delay
-  
+    const throttleDelay = 5000; // 1 second delay
+
     BarcodeScanner.addListener('barcodeScanned', (event) => {
       if (!this.isBarcodeWithinRectangle(event.barcode)) {
         console.log('Barcode not within the rectangle');
@@ -132,12 +142,12 @@ export class BarcodeScanningModalComponent implements OnInit, AfterViewInit, OnD
       }
       this.ngZone.run(() => {
         const currentTime = Date.now();
-  
+
         // Check if the required delay has passed since the last invocation
         if (currentTime - lastInvocationTime > throttleDelay) {
           lastInvocationTime = currentTime;
           const barcodeValue = event.barcode.displayValue;
-          
+
           // Process the scanned barcode
           this.handleBarcodeScanned(barcodeValue);
         } else {
@@ -146,38 +156,74 @@ export class BarcodeScanningModalComponent implements OnInit, AfterViewInit, OnD
       });
     });
   }
-  
+
+  async showErrToast(msg: string) {
+    console.log('idhr aya 4');
+    const toast = await this.toastController.create({
+      message: msg,
+      duration: 2000,
+      mode: 'ios',
+      color: 'danger',
+      position: 'middle',
+    });
+
+    await toast.present();
+  }
+
+  async showSuccesstoast(msg: string) {
+    console.log('idhr aya 3');
+    const toast = await this.toastController.create({
+      message: msg,
+      duration: 2000,
+      mode: 'ios',
+      color: 'success',
+      position: 'middle',
+    });
+
+    await toast.present();
+  }
 
   handleBarcodeScanned(barcodeValue: string) {
     const item = this.currentOrderList[barcodeValue];
-
+    console.log('idhr aya 1');
     if (!item) {
-      this.showCustomNotification(`SKU not found in order: ${barcodeValue}`);
+      this.showErrToast(`SKU not found in order: ${barcodeValue}`);
       return;
     }
 
     if (item.scannedQuantity < item.expectedQuantity) {
+      console.log('idhr aya 2');
       item.scannedQuantity++;
-      const notificationMessage = item.scannedQuantity === item.expectedQuantity
-        ? `${barcodeValue} fully scanned`
-        : `Scanned ${barcodeValue}: ${item.scannedQuantity}/${item.expectedQuantity}`;
-      this.showCustomNotification(notificationMessage);
+      const notificationMessage =
+        item.scannedQuantity === item.expectedQuantity
+          ? `${barcodeValue} fully scanned`
+          : `Scanned ${barcodeValue}: ${item.scannedQuantity}/${item.expectedQuantity}`;
+      this.showSuccesstoast(notificationMessage);
     } else {
-      this.showCustomNotification(`${barcodeValue} already fully scanned`);
+      this.showErrToast(`${barcodeValue} already fully scanned`);
     }
 
+    console.log('idhr aya 1');
     // Update the display list after processing the scan
     this.updateDisplayList();
     console.log('Updated barcodeArr:', this.barcodeArr);
   }
 
-
-  showCustomNotification(message: string) {
+  async showCustomNotification(message: string) {
     this.notificationMessage = message;
-    this.showNotification = true;
-    setTimeout(() => {
-      this.showNotification = false;
-    }, 2000);
+
+    const toast = await this.toastController.create({
+      message: message,
+      duration: 2000,
+      position: 'top',
+    });
+
+    await toast.present();
+
+    // this.showNotification = true;
+    // setTimeout(() => {
+    //   this.showNotification = false;
+    // }, 2000);
   }
 
   completeOrder() {
@@ -187,11 +233,14 @@ export class BarcodeScanningModalComponent implements OnInit, AfterViewInit, OnD
     const scaledRect = this.getScaledRectangle();
     const detectionCornerPoints = scaledRect
       ? [
-        [scaledRect.left, scaledRect.top],
-        [scaledRect.left + scaledRect.width, scaledRect.top],
-        [scaledRect.left + scaledRect.width, scaledRect.top + scaledRect.height],
-        [scaledRect.left, scaledRect.top + scaledRect.height],
-      ]
+          [scaledRect.left, scaledRect.top],
+          [scaledRect.left + scaledRect.width, scaledRect.top],
+          [
+            scaledRect.left + scaledRect.width,
+            scaledRect.top + scaledRect.height,
+          ],
+          [scaledRect.left, scaledRect.top + scaledRect.height],
+        ]
       : undefined;
 
     const cornerPoints = barcode.cornerPoints;
@@ -212,11 +261,11 @@ export class BarcodeScanningModalComponent implements OnInit, AfterViewInit, OnD
 
   private getScaledRectangle() {
     const rect = this.squareElement?.nativeElement.getBoundingClientRect();
-  
+
     // Calculate the 15% margin for each side
     const marginWidth = rect.width * 0.15;
     const marginHeight = rect.height * 0.15;
-  
+
     // Adjust the rectangle dimensions to only include the central area
     return {
       left: (rect.left + marginWidth) * window.devicePixelRatio,

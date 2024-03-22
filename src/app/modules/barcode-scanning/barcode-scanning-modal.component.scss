@@ -7,19 +7,38 @@ ion-content {
   top: 25%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 390px;
-  height: 390px;
-  border: 2px solid white;
-  box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.3);
+  width: 100% !important;
+  height: 50vh;
+}
+.square_without_borders{
+  width:100%;
+  height:100%;
+ 
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  vertical-align:middle;
 }
 
-.below_div {
+.list_div {
   background: black;
-  width: 100%;
-  height: 50%;
+  width: 100% !important;
+  height: 50vh;
   overflow-y: auto;
   position: absolute;
   bottom: 0;
+}
+.list_header{
+  padding:10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  column-gap: 0.5rem/* 8px */;
+  border-bottom:1px solid gray;
+}
+.main_card{
+  height:40vh;
+  overflow-y:auto!important
 }
 
 .item-card {
@@ -43,19 +62,19 @@ ion-content {
 
 .tick-icon {
   border-radius: 50%;
-  font-size: 20px;
+  font-size: 25px;
   margin-right: 10px; 
   color: white;
 }
 
 .green-tick {
   font-size: 22px;
-  background-color: #759444;
-  color: white;
+  color: #759444;
+  
 }
 
 .blue-tick {
-  background-color: #095394;
+ 
 }
 
 .green-border {
@@ -67,7 +86,7 @@ ion-content {
 }
 
 .quantity-box {
-  display: inline-block;
+  text-align: center!important;
   padding: 5px 10px;
   border-radius: 5px;
   background-color: #f8f8f8;
